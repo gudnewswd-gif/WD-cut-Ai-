@@ -540,3 +540,225 @@ footer { text-align: center; color: var(--muted); font-size: 11px; padding: 20px
       dy = (Math.random() - 0.5) * h * power * 2;
     } else if (shake === "smooth") {
   
+      dx = Math.sin(t * 2.2) * w * power;
+      dy = Math.cos(t * 1.7) * h * power;
+    } else if (shake === "beat") {
+      const pulse = Math.max(0, Math.sin(t * 8));
+      dx = Math.sin(t * 8) * w * power * pulse;
+      dy = Math.cos(t * 8) * h * power * pulse;
+    } else if (shake === "rotation") {
+      angle = Math.sin(t * 5) * shakeIntensity * 0.08;
+    } else if (shake === "camera") {
+      dx = Math.sin(t * 12) * w * power * 0.6;
+      dy = Math.cos(t * 10) * h * power * 0.6;
+      angle = Math.sin(t * 7) * shakeIntensity * 0.035;
+    }
+
+    ctx.filter = filter;
+    ctx.translate(w / 2 + dx, h / 2 + dy);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale);
+    ctx.drawImage(video, -w / 2, -h / 2, w, h);
+    ctx.restore();
+
+    if (flash) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+
+    if (effect === "rgb") {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.18 * intensity;
+      ctx.fillStyle = "#ff003c";
+      ctx.fillRect(Math.sin(t * 20) * 8, 0, w, h);
+      ctx.fillStyle = "#00eaff";
+      ctx.fillRect(Math.cos(t * 18) * 8, 0, w, h);
+      ctx.restore();
+    }
+  }
+
+  // Make the video picker respond to taps.
+  $("file").addEventListener("click", () => {
+    status("Choose a video from your device.");
+  });
+
+  // Display visual effects on the actual video preview.
+  function updatePreviewStyle() {
+    let filter = "none";
+    if (effect === "blur") filter = "blur(" + intensity * 7 + "px)";
+    if (effect === "gray") filter = "grayscale(1)";
+    if (effect === "bright") filter = "brightness(" + (1 + intensity * 0.7) + ")";
+    if (effect === "contrast") filter = "contrast(" + (1 + intensity * 1.5) + ")";
+    video.style.filter = filter;
+    video.style.transform = effect === "zoom"
+      ? "scale(" + (1 + intensity * 0.35) + ")"
+      : "none";
+  }
+
+  document.querySelectorAll("[data-effect]").forEach(button => {
+    button.addEventListener("click", updatePreviewStyle);
+  });
+
+  $("intensity").addEventListener("input", updatePreviewStyle);
+
+  const originalEffectHandler = status;
+  function showReadyMessage(message) {
+    originalEffectHandler(message);
+    updatePreviewStyle();
+  }
+
+  // Keep the preview's volume and speed in sync with the sliders.
+  video.volume = Number($("volume").value);
+  video.playbackRate = Number($("speed").value);
+
+  // Export the edited canvas as a WebM video.
+  $("export").addEventListener("click", async () => {
+    if (!video.src || !video.videoWidth || !video.videoHeight) {
+      status("Choose a video and wait for it to finish loading first.");
+      return;
+    }
+
+    if (!window.MediaRecorder || !canvas.captureStream) {
+      status("Video export is not supported by this browser. Try Chrome.");
+      return;
+    }
+
+    if (exporting) return;
+
+    try {
+      exporting = true;
+      chunks = [];
+      $("export").disabled = true;
+      $("bar").style.width = "0%";
+      $("download").style.display = "none";
+      status("Exporting… keep this page open.");
+
+      const start = Number($("start").value);
+      const end = Number($("end").value);
+
+      if (end <= start) {
+        exporting = false;
+        $("export").disabled = false;
+        status("Set an end time later than the start time.");
+        return;
+      }
+
+      video.pause();
+      video.currentTime = start;
+      video.playbackRate = Number($("speed").value);
+
+      // Wait until the video has sought to the selected start time.
+      await new Promise(resolve => {
+        if (Math.abs(video.currentTime - start) < 0.05) resolve();
+        else video.addEventListener("seeked", resolve, { once: true });
+      });
+
+      const stream = canvas.captureStream(30);
+      exportStream = stream;
+
+      // Include the video's audio when the browser allows it.
+      try {
+        if (!audioContext) {
+          audioContext = new AudioContext();
+          audioSource = audioContext.createMediaElementSource(video);
+          audioDestination = audioContext.createMediaStreamDestination();
+          audioSource.connect(audioDestination);
+          audioSource.connect(audioContext.destination);
+        }
+        if (audioContext.state === "suspended") await audioContext.resume();
+        audioDestination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+      } catch (audioError) {
+        status("Exporting video. Audio capture is unavailable in this browser.");
+      }
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+
+      recorder = new MediaRecorder(stream, { mimeType });
+
+      recorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+      };
+
+      recorder.onerror = () => {
+        status("Export failed. Try a shorter video or another browser.");
+        exporting = false;
+        $("export").disabled = false;
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        $("download").href = url;
+        $("download").style.display = "inline-block";
+        $("download").textContent = "⬇ Download edited video";
+        $("bar").style.width = "100%";
+        $("exportStatus").textContent =
+          "Export complete. Tap the download link to save your video.";
+        status("Export complete!");
+        stream.getTracks().forEach(track => track.stop());
+        exporting = false;
+        $("export").disabled = false;
+        video.pause();
+      };
+
+      recorder.start(250);
+      await video.play();
+
+      const exportStarted = performance.now();
+      const exportDuration = end - start;
+
+      const watchExport = () => {
+        if (!exporting) return;
+
+        const elapsed = Math.max(0, video.currentTime - start);
+        const progress = Math.min(100, elapsed / exportDuration * 100);
+        $("bar").style.width = progress + "%";
+        $("exportStatus").textContent = "Exporting: " + Math.floor(progress) + "%";
+
+        if (video.currentTime >= end || video.ended) {
+          video.pause();
+          if (recorder && recorder.state !== "inactive") recorder.stop();
+          return;
+        }
+
+        requestAnimationFrame(watchExport);
+      };
+
+      requestAnimationFrame(watchExport);
+
+    } catch (error) {
+      exporting = false;
+      $("export").disabled = false;
+      status("Could not export this video. Try a smaller MP4 file in Chrome.");
+      console.error(error);
+    }
+  });
+
+  // Keep the canvas drawing loop running while a video is loaded.
+  video.addEventListener("play", () => {
+    if (!raf) drawLoop();
+  });
+
+  // Stop playback at the selected end time.
+  video.addEventListener("timeupdate", () => {
+    if (!exporting && video.currentTime >= Number($("end").value)) {
+      video.pause();
+    }
+  });
+
+  // Make sure the app starts with its first tab visible.
+  document.querySelectorAll(".tabcontent").forEach(tab => {
+    tab.classList.toggle("show", tab.id === "effects");
+  });
+
+  status("SweetCut loaded. Choose a video to begin editing.");
+})();
+</script>
+</body>
+</html>
+
