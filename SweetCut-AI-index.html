@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101116">
+<title>SweetCut AI — Video Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#101116;--panel:#191b23;--line:#303341;--text:#f6f7fb;--muted:#a8adbd;--accent:#a78bfa;--accent2:#67e8f9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}header{padding:18px 16px 12px;background:#15161d;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}h1{font-size:22px;margin:0}header p{margin:4px 0 0;color:var(--muted);font-size:12px}.wrap{max-width:980px;margin:auto;padding:14px;display:grid;gap:14px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}.panel h2{font-size:16px;margin:0 0 12px}.preview{background:#08090c;border-radius:12px;overflow:hidden;display:grid;place-items:center;min-height:180px;position:relative}video{display:block;width:100%;max-height:52vh;background:#08090c}#empty{color:var(--muted);padding:35px 15px;text-align:center}#textLayer{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:800;font-size:28px;text-align:center;max-width:90%;text-shadow:0 2px 6px #000;pointer-events:none;white-space:pre-wrap}.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}button,.filebtn{border:1px solid var(--line);background:#242632;color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#171225;font-weight:700}button:disabled{opacity:.45;cursor:not-allowed}input,select,textarea{width:100%;background:#101116;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;min-width:0}input[type=range]{padding:0;accent-color:var(--accent)}input[type=file]{font-size:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:6px;min-width:0}.field label{font-size:12px;color:var(--muted)}.full{grid-column:1/-1}.muted{color:var(--muted);font-size:12px}.time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.status{padding:10px;border-radius:10px;background:#11131a;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.badge{font-size:11px;color:var(--accent2)}.timeline{display:grid;gap:8px}.timeline input{accent-color:var(--accent)}footer{text-align:center;padding:10px 16px 28px;color:var(--muted);font-size:12px}@media(min-width:760px){.wrap{grid-template-columns:1.15fr .85fr;align-items:start}.previewPanel{grid-row:span 2}.wrap>.panel:last-of-type{grid-column:2}.grid{grid-template-columns:1fr 1fr}}@media(max-width:420px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.preview{min-height:150px}}
+</style>
+</head>
+<body>
+<header><h1>✂️ SweetCut AI</h1><p>Video Studio · Free editing tools</p></header>
+<main class="wrap">
+<section class="panel previewPanel">
+<h2>Preview <span class="badge">LIVE</span></h2>
+<div class="preview" id="preview">
+  <video id="video" playsinline preload="metadata"></video>
+  <div id="empty">🎬<br><strong>Choose a video to begin</strong><br><small>Works with video formats supported by your browser</small></div>
+  <div id="textLayer"></div>
+</div>
+<div class="controls">
+<button id="playBtn" class="primary" disabled>▶ Play</button>
+<button id="stopBtn" disabled>■ Stop</button>
+<button id="resetBtn">Reset effects</button>
+</div>
+<div class="timeline" style="margin-top:14px">
+<div class="field"><label for="seek">Playback position</label><input id="seek" type="range" min="0" max="100" value="0" disabled><div class="muted" id="timeLabel">00:00 / 00:00</div></div>
+<div class="time-row">
+<div class="field"><label for="trimStart">Trim start (seconds)</label><input id="trimStart" type="number" min="0" step="0.1" value="0"></div>
+<div class="field"><label for="trimEnd">Trim end (seconds)</label><input id="trimEnd" type="number" min="0" step="0.1" value="0"></div>
+</div>
+<button id="previewTrimBtn" disabled>Preview trimmed section</button>
+</div>
+</section>
+
+<section class="panel">
+<h2>1 · Import media</h2>
+<div class="grid">
+<div class="field full"><label for="videoFile">Choose video</label><input id="videoFile" type="file" accept="video/*"></div>
+<div class="field full"><label for="audioFile">Choose background music</label><input id="audioFile" type="file" accept="audio/*"></div>
+<div class="field full"><label for="musicVolume">Music volume <span id="musicVolLabel">30%</span></label><input id="musicVolume" type="range" min="0" max="100" value="30"></div>
+<div class="field full"><label for="videoVolume">Video volume <span id="videoVolLabel">70%</span></label><input id="videoVolume" type="range" min="0" max="100" value="70"></div>
+<button id="musicBtn" disabled>▶ Play music</button><button id="musicStopBtn" disabled>■ Stop music</button>
+</div>
+<div class="status" id="mediaStatus" style="margin-top:12px">No media loaded yet.</div>
+</section>
+
+<section class="panel">
+<h2>2 · Picture & effects</h2>
+<div class="grid">
+<div class="field"><label for="filter">Colour filter</label><select id="filter"><option value="none">Original</option><option value="contrast(1.15) saturate(1.25)">Vivid</option><option value="grayscale(1)">Black & white</option><option value="sepia(.75)">Warm vintage</option><option value="brightness(1.15) saturate(.8)">Bright</option><option value="contrast(1.3)">High contrast</option><option value="hue-rotate(35deg) saturate(1.2)">Colour shift</option></select></div>
+<div class="field"><label for="speed">Playback speed</label><select id="speed"><option value=".5">0.5×</option><option value=".75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>
+<div class="field"><label for="zoom">Zoom <span id="zoomLabel">100%</span></label><input id="zoom" type="range" min="80" max="150" value="100"></div>
+<div class="field"><label for="rotate">Rotate</label><select id="rotate"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></div>
+<div class="field full"><label for="overlayText">Text overlay</label><input id="overlayText" maxlength="120" placeholder="Type a title or caption"></div>
+<div class="field"><label for="textSize">Text size <span id="textSizeLabel">28px</span></label><input id="textSize" type="range" min="14" max="56" value="28"></div>
+<div class="field"><label for="textColor">Text colour</label><input id="textColor" type="color" value="#ffffff"></div>
+<div class="field full"><label for="textPosition">Text position</label><select id="textPosition"><option value="top">Top</option><option value="middle" selected>Middle</option><option value="bottom">Bottom</option></select></div>
+</div>
+</section>
+
+<section class="panel">
+<h2>3 · Export video</h2>
+<p class="muted">Export records the preview canvas to WebM when supported by this browser. Test a short clip first. Browser and phone support can vary.</p>
+<div class="grid">
+<div class="field"><label for="exportFps">Frame rate</label><select id="exportFps"><option value="24">24 FPS</option><option value="30" selected>30 FPS</option></select></div>
+<div class="field"><label for="exportQuality">Quality</label><select id="exportQuality"><option value="2500000">Standard</option><option value="5000000">High</option></select></div>
+<div class="field full"><label for="exportName">File name</label><input id="exportName" value="SweetCut-Edited"></div>
+<div class="field full"><button id="exportBtn" class="primary" disabled>⬇ Export WebM</button></div>
+</div>
+<div class="status" id="exportStatus" style="margin-top:12px">Import a video before exporting.</div>
+<a id="downloadLink" hidden style="display:block;margin-top:12px;color:var(--accent2)" download="SweetCut-Edited.webm">Download exported video</a>
+</section>
+
+<section class="panel">
+<h2>4 · AI Studio (starter)</h2>
+<div class="grid">
+<div class="field full"><label for="aiCaption">Caption helper</label><textarea id="aiCaption" rows="3" placeholder="Paste a short description or speech transcript here"></textarea><button id="captionBtn">Add text as caption</button></div>
+<div class="field full"><label>Background removal</label><div class="status">AI background removal is not connected in this starter build. It needs a compatible on-device model or an online inference service. This app does not pretend that this button can remove backgrounds yet.</div></div>
+<div class="field full"><button id="saveSettingsBtn">Save editing settings on this device</button><button id="loadSettingsBtn">Load saved settings</button></div>
+</div>
+</section>
+</main>
+<footer>SweetCut AI · Starter editor · Your selected media is processed in this browser unless you choose an external service.</footer>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const video=$('video'), canvas=document.createElement('canvas'), ctx=canvas.getContext('2d');
+let videoURL='',audioURL='',music=null,raf=0,recording=false,exportURL='',lastFrameTime=0;
+canvas.width=1280;canvas.height=720;
+const fmt=s=>{if(!Number.isFinite(s)||s<0)s=0;return String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0')};
+function status(msg){$('mediaStatus').textContent=msg}
+function applyPreview(){
+ video.style.filter=$('filter').value==='none'?'none':$('filter').value;
+ video.playbackRate=Number($('speed').value);
+ video.style.transform=`scale(${Number($('zoom').value)/100}) rotate(${Number($('rotate').value)}deg)`;
+ $('zoomLabel').textContent=$('zoom').value+'%';
+ $('textLayer').textContent=$('overlayText').value;
+ $('textLayer').style.fontSize=$('textSize').value+'px';
+ $('textSizeLabel').textContent=$('textSize').value+'px';
+ $('textLayer').style.color=$('textColor').value;
+ $('textLayer').style.top=$('textPosition').value==='top'?'14%':$('textPosition').value==='bottom'?'84%':'50%';
+ $('textLayer').style.display=$('overlayText').value.trim()?'block':'none';
+}
+function drawFrame(){
+ if(video.readyState>=2&&video.videoWidth){
+  const rotated=[90,270].includes(Number($('rotate').value));
+  const vw=video.videoWidth,vh=video.videoHeight;
+  canvas.width=rotated?720:1280;canvas.height=rotated?1280:720;
+  const scale=Math.min(canvas.width/vw,canvas.height/vh)*Number($('zoom').value)/100;
+  ctx.save();ctx.fillStyle='#08090c';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(Number($('rotate').value)*Math.PI/180);
+  ctx.filter=$('filter').value==='none'?'none':$('filter').value;
+  ctx.drawImage(video,-vw*scale/2,-vh*scale/2,vw*scale,vh*scale);ctx.filter='none';
+  const txt=$('overlayText').value.trim();
+  if(txt){const size=Number($('textSize').value)*canvas.width/1280;ctx.font=`800 ${size}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline=$('textPosition').value==='top'?'top':$('textPosition').value==='bottom'?'bottom':'middle';ctx.lineWidth=Math.max(2,size*.12);ctx.strokeStyle='#000';ctx.fillStyle=$('textColor').value;const words=txt.split(/\s+/),lines=[];let line='';for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>canvas.width*.86&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);const lineH=size*1.2;let y=$('textPosition').value==='top'?canvas.height*.08:$('textPosition').value==='bottom'?canvas.height*.92-(lines.length-1)*lineH:canvas.height/2-(lines.length-1)*lineH/2;lines.forEach((l,i)=>{ctx.strokeText(l,canvas.width/2,y+i*lineH);ctx.fillText(l,canvas.width/2,y+i*lineH)})}
+  ctx.restore();
+ }
+ raf=requestAnimationFrame(drawFrame);
+}
+function updateTime(){if(video.duration){$('seek').value=video.currentTime/video.duration*100;$('timeLabel').textContent=fmt(video.currentTime)+' / '+fmt(video.duration);if(!$('trimEnd').dataset.edited)$('trimEnd').value=video.duration.toFixed(1)}}
+$('videoFile').addEventListener('change',e=>{
+ const f=e.target.files&&e.target.files[0];if(!f)return;
+ if(videoURL)URL.revokeObjectURL(videoURL);videoURL=URL.createObjectURL(f);video.src=videoURL;video.load();
+ video.onloadedmetadata=()=>{$('empty').hidden=true;$('playBtn').disabled=false;$('stopBtn').disabled=false;$('seek').disabled=false;$('previewTrimBtn').disabled=false;$('exportBtn').disabled=false;$('trimStart').max=video.duration;$('trimEnd').max=video.duration;$('trimStart').value='0';$('trimEnd').value=video.duration.toFixed(1);delete $('trimEnd').dataset.edited;status(`Loaded: ${f.name} · ${video.videoWidth}×${video.videoHeight} · ${fmt(video.duration)}`);updateTime()};
+ video.onerror=()=>status('This video format could not be opened by your browser. Try another video format.');
+});
+$('audioFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(audioURL)URL.revokeObjectURL(audioURL);audioURL=URL.createObjectURL(f);if(music)music.pause();music=new Audio(audioURL);music.loop=true;music.volume=Number($('musicVolume').value)/100;$('musicBtn').disabled=false;$('musicStopBtn').disabled=false;status('Music loaded: '+f.name)});
+$('playBtn').onclick=async()=>{try{if(video.paused){await video.play();$('playBtn').textContent='⏸ Pause'}else{video.pause();$('playBtn').textContent='▶ Play'}}catch(e){status('Could not play this video: '+e.message)}};
+$('stopBtn').onclick=()=>{video.pause();video.currentTime=Number($('trimStart').value)||0;$('playBtn').textContent='▶ Play'};
+video.addEventListener('timeupdate',updateTime);video.addEventListener('ended',()=>{$('playBtn').textContent='▶ Play'});
+$('seek').addEventListener('input',()=>{if(video.duration)video.currentTime=video.duration*Number($('seek').value)/100});
+$('trimEnd').addEventListener('input',()=>{$('trimEnd').dataset.edited='1'});
+$('previewTrimBtn').onclick=()=>{const start=Math.max(0,Number($('trimStart').value)||0),end=Number($('trimEnd').value)||video.duration;if(end<=start){status('Trim end must be after trim start.');return}video.currentTime=start;video.play().then(()=>{$('playBtn').textContent='⏸ Pause';const check=()=>{if(video.currentTime>=end){video.pause();$('playBtn').textContent='▶ Play';video.removeEventListener('timeupdate',check)}};video.addEventListener('timeupdate',check)}).catch(()=>status('Could not preview this section.'))};
+['filter','speed','zoom','rotate','overlayText','textSize','textColor','textPosition'].forEach(id=>$(id).addEventListener('input',applyPreview));
+$('videoVolume').addEventListener('input',()=>{$('videoVolLabel').textContent=$('videoVolume').value+'%';video.volume=Number($('videoVolume').value)/100});
+$('musicVolume').addEventListener('input',()=>{$('musicVolLabel').textContent=$('musicVolume').value+'%';if(music)music.volume=Number($('musicVolume').value)/100});
+$('musicBtn').onclick=async()=>{if(!music)return;try{if(music.paused){await music.play();$('musicBtn').textContent='⏸ Pause music'}else{music.pause();$('musicBtn').textContent='▶ Play music'}}catch(e){status('Music playback failed: '+e.message)}};
+$('musicStopBtn').onclick=()=>{if(music){music.pause();music.currentTime=0;$('musicBtn').textContent='▶ Play music'}};
+$('resetBtn').onclick=()=>{$('filter').value='none';$('speed').value='1';$('zoom').value='100';$('rotate').value='0';$('overlayText').value='';$('textSize').value='28';$('textColor').value='#ffffff';$('textPosition').value='middle';applyPreview()};
+$('captionBtn').onclick=()=>{$('overlayText').value=$('aiCaption').value.trim();applyPreview();status('Caption text added to the preview. This helper does not transcribe audio automatically.')};
+function canvasStream(fps){if(!canvas.captureStream)throw Error('Canvas recording is not supported in this browser.');return canvas.captureStream(fps)}
+$('exportBtn').onclick=async()=>{
+ if(recording)return;if(!video.src||!video.videoWidth){status('Choose a video first.');return}
+ const start=Math.max(0,Number($('trimStart').value)||0),end=Number($('trimEnd').value)||video.duration;
+ if(end<=start||end>video.duration+.1){$('exportStatus').textContent='Check the trim start and end values.';return}
+ if(!window.MediaRecorder){$('exportStatus').textContent='This browser does not support video recording. Try a recent Chrome version.';return}
+ let stream,recorder,chunks=[];
+ try{
+  recording=true;$('exportBtn').disabled=true;$('exportStatus').textContent='Preparing export…';
+  video.pause();video.currentTime=start;await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Video seek timed out')),5000);video.addEventListener('seeked',()=>{clearTimeout(t);resolve()},{once:true})});
+  stream=canvasStream(Number($('exportFps').value));
+  // Audio is intentionally not mixed into export in this starter build; browser-safe video export comes first.
+  let mime='video/webm;codecs=vp9';if(!MediaRecorder.isTypeSupported(mime))mime='video/webm;codecs=vp8';if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+  recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:Number($('exportQuality').value)});
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  recorder.onerror=e=>{$('exportStatus').textContent='Export failed: '+(e.error?.message||'recording error')};
+  recorder.onstop=()=>{recording=false;$('exportBtn').disabled=false;stream.getTracks().forEach(t=>t.stop());if(!chunks.length){$('exportStatus').textContent='No video data was recorded. Try a shorter clip or another browser.';return}const blob=new Blob(chunks,{type:'video/webm'});if(exportURL)URL.revokeObjectURL(exportURL);exportURL=URL.createObjectURL(blob);const a=$('downloadLink');a.href=exportURL;a.download=(($('exportName').value.trim()||'SweetCut-Edited').replace(/[^\w-]+/g,'-'))+'.webm';a.hidden=false;a.textContent='⬇ Download exported video ('+(blob.size/1024/1024).toFixed(1)+' MB)';$('exportStatus').textContent='Export ready. Tap the download link and check your Downloads folder. Audio mixing is not included in this starter export.'};
+  recorder.start(250);await video.play();$('exportStatus').textContent='Recording preview…';const endCheck=()=>{if(video.currentTime>=end){video.pause();video.removeEventListener('timeupdate',endCheck);if(recorder.state!=='inactive')recorder.stop()}};
+  video.addEventListener('timeupdate',endCheck);video.addEventListener('ended',()=>{if(recorder.state!=='inactive')recorder.stop()},{once:true});
+ }catch(e){recording=false;$('exportBtn').disabled=false;if(stream)stream.getTracks().forEach(t=>t.stop());$('exportStatus').textContent='Could not export: '+e.message+'. Try a short clip in Chrome.';if(recorder&&recorder.state!=='inactive')recorder.stop()}
+};
+const settingsKeys=['filter','speed','zoom','rotate','overlayText','textSize','textColor','textPosition','musicVolume','videoVolume','exportFps','exportQuality','exportName'];
+$('saveSettingsBtn').onclick=()=>{try{const o={};settingsKeys.forEach(k=>o[k]=$(k).value);localStorage.setItem('sweetcut-settings-v1',JSON.stringify(o));status('Editing settings saved on this device. Media files are not saved.')}catch(e){status('Could not save settings in this browser.')}};
+$('loadSettingsBtn').onclick=()=>{try{const o=JSON.parse(localStorage.getItem('sweetcut-settings-v1')||'{}');settingsKeys.forEach(k=>{if(o[k]!==undefined)$(k).value=o[k]});applyPreview();video.volume=Number($('videoVolume').value)/100;if(music)music.volume=Number($('musicVolume').value)/100;status('Saved settings loaded.')}catch(e){status('No saved settings found.')}};
+video.volume=.7;applyPreview();drawFrame();
+window.addEventListener('beforeunload',()=>{if(videoURL)URL.revokeObjectURL(videoURL);if(audioURL)URL.revokeObjectURL(audioURL);if(exportURL)URL.revokeObjectURL(exportURL);if(music)music.pause();cancelAnimationFrame(raf)});
+})();
+</script>
+</body>
+</html>
